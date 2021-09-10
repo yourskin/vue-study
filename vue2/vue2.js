@@ -4,9 +4,98 @@ class Vue {
     this.$data = options.data
     proxy(this)
     obsever(this.$data)
-    this.$el = document.querySelector(options.el)
-    this.compile(this.$el)
+    // this.compile(this.$el)
+    this.$mount(options.el)
   }
+
+  $mount(el) {
+    this.$el = document.querySelector(el)
+    const updateComponent = () => {
+      const vnode = this.$options.render.call(this, this.$createElment)
+      this._update(vnode)
+    }
+    new Watcher(this.$el, updateComponent)
+  }
+
+  $createElment(tag, data, children) {
+    return { tag, data, children }
+  }
+
+  _update(vnode) {
+    const prevNode = this._vnode
+    if (!prevNode) {
+      // 創建
+      this.__patch__(this.$el, vnode)
+    } else {
+      this.__patch__(prevNode, vnode)
+    }
+  }
+
+  __patch__(oldVnode, vnode) {
+    if (oldVnode.nodeType) {
+      const el = this.createElm(vnode)
+      const parent = oldVnode.parentElement
+      const refElm = oldVnode.nextSibling
+      parent.insertBefore(el, refElm)
+      parent.removeChild(oldVnode)
+    } else {
+      const el = (vnode.el = oldVnode.el)
+      if (oldVnode.tag === vnode.tag) {
+        if (typeof oldVnode.children === 'string') {
+          if (typeof vnode.children === 'string') {
+            el.textContent = vnode.children
+          } else {
+            el.innerHTML = ''
+            oldVnode.children.forEach((child) => {
+              el.appendChild(this.createElm(child))
+            })
+          }
+        } else {
+          if (typeof vnode.children === 'string') {
+            el.textContent = vnode.children
+          } else {
+            this.updateChildren(el, oldVnode.children, vnode.children)
+          }
+        }
+      } else {
+      }
+    }
+    this._vnode = vnode
+  }
+
+  createElm(vnode) {
+    const node = document.createElement(vnode.tag)
+    if (typeof vnode.children === 'string') {
+      node.textContent = vnode.children
+    } else {
+      vnode.children.forEach((n) => {
+        node.appendChild(this.createElm(n))
+      })
+    }
+    vnode.el = node
+    return node
+  }
+
+  updateChildren(parentElm, oldCh, newCh) {
+    // 这⾥暂且直接patch对应索引的两个节点
+    const len = Math.min(oldCh.length, newCh.length)
+    for (let i = 0; i < len; i++) {
+      this.__patch__(oldCh[i], newCh[i])
+    }
+    // newCh若是更⻓的那个，说明有新增
+    if (newCh.length > oldCh.length) {
+      newCh.slice(len).forEach((child) => {
+        const el = this.createElm(child)
+        parentElm.appendChild(el)
+      })
+    } else if (newCh.length < oldCh.length) {
+      // oldCh若是更⻓的那个，说明有删减
+      oldCh.slice(len).forEach((child) => {
+        parentElm.removeChild(child.el)
+      })
+    }
+  }
+
   // 派发更新标签动作
   update(node, type, key) {
     const fn = this[`${type}Updater`]
@@ -60,28 +149,31 @@ class Vue {
 
 // 值发生更改重新渲染页面
 class Watcher {
-  constructor(vm, key, updateFn) {
+  constructor(vm, fn) {
     this.vm = vm
-    this.key = key
+    this.getter = fn
+    this.get()
+  }
+
+  get() {
     Dep.target = this
-    this.vm[this.key]
+    this.getter.call(this.vm)
     Dep.target = null
-    this.updateFn = updateFn
   }
 
   update() {
-    this.updateFn.call(this.vm, this.vm[this.key])
+    this.get()
   }
 }
 
 // 派发watcher动作
 class Dep {
   constructor() {
-    this.deps = []
+    this.deps = new Set()
   }
 
   addDep(dep) {
-    this.deps.push(dep)
+    this.deps.add(dep)
   }
 
   notify() {

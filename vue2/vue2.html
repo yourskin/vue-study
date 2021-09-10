@@ -11,24 +11,23 @@
 </head>
 
 <body>
-  <div id="app">
-    <p>{{ count }}</p>
-    <p>
-      <span k-text='count'></span>
-    </p>
-    <p k-html='dom'></p>
-  </div>
+  <div id="app"></div>
   <script>
     const app = new Vue({
       el: "#app",
       data: {
         count: 1,
-        dom: '<span style="color: red;">哈哈哈</span>'
+      },
+      render: function (h) {
+        return h('div', null, [
+          h('h1', null, this.count + ''),
+          h('h1', null, this.count + ''),
+          h('h1', null, this.count + ''),
+        ])
       }
     })
     setInterval(() => {
       app.count++
-      app.dom = '<span style="color: blue;">生而为人</span>'
     }, 1000);
   </script>
 </body>
